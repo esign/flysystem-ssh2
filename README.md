@@ -1,1 +1,1 @@
-# flysystem-ssh2
+# Flysystem adapter for SSH2
