@@ -17,4 +17,13 @@
             <directory suffix="Test.php">./tests/Unit</directory>
         </testsuite>
     </testsuites>
+    <php>
+        <server name="SSH_HOST" value="example.com"/>
+        <!--<server name="SSH_HOST_FINGERPRINT" value=""/>-->
+        <server name="SSH_USERNAME" value="whoami"/>
+        <!--<server name="SSH_PASSWORD" value="password"/>-->
+        <server name="SSH_PRIVATE_KEY" value="path/to/priv/key"/>
+        <server name="SSH_PUBLIC_KEY" value="path/to/pub/key"/>
+        <server name="SSH_ROOT" value="/path/to/root"/>
+    </php>
 </phpunit>
