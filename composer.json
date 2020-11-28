@@ -6,7 +6,8 @@
         "league/flysystem": "~1.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^9.4"
+        "phpunit/phpunit": "^9.4",
+        "vlucas/phpdotenv": "^5.2"
     },
     "license": "MIT",
     "authors": [
@@ -14,5 +15,15 @@
             "name": "Bart Decorte",
             "email": "bart@esign.eu"
         }
-    ]
+    ],
+    "autoload": {
+        "psr-4": {
+            "Esign\\Flysystem\\Ssh2\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    }
 }
