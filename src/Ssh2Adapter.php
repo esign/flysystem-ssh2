@@ -3,8 +3,10 @@
 namespace Esign\Flysystem\Ssh2;
 
 use League\Flysystem\Adapter\AbstractFtpAdapter;
+use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
 use Exception;
+use SplFileInfo;
 
 class Ssh2Adapter extends AbstractFtpAdapter
 {
@@ -16,7 +18,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
     /**
      * @var resource
      */
-    protected $sftp;
+    public $sftp;
 
     /**
      * @var int
@@ -157,13 +159,21 @@ class Ssh2Adapter extends AbstractFtpAdapter
         return $this->root.ltrim($path, $this->separator);
     }
 
-    public function listDirectoryContents($directory, $recursive = false)
+    /**
+     * List the contents of a directory.
+     *
+     * @param string $directory
+     * @param bool   $recursive
+     *
+     * @return array
+     */
+    protected function listDirectoryContents($directory, $recursive = true)
     {
         $connection = $this->getConnection();
         $sftp = $this->sftp;
-        $directory = rtrim($directory, $this->separator) . '/';
         $location = $this->prefix($directory);
-        $handle = @opendir("ssh2.sftp://$sftp/$location");
+        $filenamePrefix = "ssh2.sftp://$sftp/";
+        $handle = @opendir("$filenamePrefix$location");
 
         if (!$handle) {
             return [];
@@ -174,10 +184,34 @@ class Ssh2Adapter extends AbstractFtpAdapter
             if (in_array($filename, $exclude)) {
                 continue;
             }
-            var_dump(ssh2_sftp_stat($sftp, "$location/$filename"));
+
+            $path = empty($directory) ? $filename : ($directory . '/' . $filename);
+            $fileInfo = new SplFileInfo("$filenamePrefix$location/$filename");
+            $result[] = $this->normalizeListingObject($path, $fileInfo);
+
+            if ($recursive && $fileInfo->isDir()) {
+                $result = array_merge($result, $this->listDirectoryContents($path));
+            }
         }
 
         closedir($handle);
+        return $result;
+    }
+
+    protected function normalizeListingObject($path, SplFileInfo $fileInfo)
+    {
+        $permissions = $fileInfo->getPerms();
+        $type = $fileInfo->getType();
+        $timestamp = $fileInfo->getMTime();
+
+        if ($type === 'dir') {
+            return compact('path', 'timestamp', 'type');
+        }
+
+        $visibility = $permissions & 0044 ? AdapterInterface::VISIBILITY_PUBLIC : AdapterInterface::VISIBILITY_PRIVATE;
+        $size = $fileInfo->getSize();
+
+        return compact('path', 'timestamp', 'type', 'visibility', 'size');
     }
 
     public function connect()
@@ -217,13 +251,6 @@ class Ssh2Adapter extends AbstractFtpAdapter
         }
 
         return;
-    }
-
-    protected function ssh2Callbacks()
-    {
-        return [
-
-        ];
     }
 
     protected function initializeSftpSubsystem()

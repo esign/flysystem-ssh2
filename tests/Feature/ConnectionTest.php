@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use ReflectionClass;
 
 class ConnectionTest extends TestCase
 {
@@ -14,7 +15,10 @@ class ConnectionTest extends TestCase
 
         $this->assertTrue($this->adapter()->isConnected());
 
-        $this->adapter()->listDirectoryContents('');
+        $reflection = new ReflectionClass(get_class($this->adapter()));
+        $method = $reflection->getMethod('listDirectoryContents');
+        $method->setAccessible(true);
+        $this->assertTrue(is_array($method->invokeArgs($this->adapter(), ['', false])));
 
         $this->assertNull($this->adapter()->disconnect());
 
