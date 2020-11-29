@@ -18,7 +18,8 @@ class ConnectionTest extends TestCase
         $reflection = new ReflectionClass(get_class($this->adapter()));
         $method = $reflection->getMethod('listDirectoryContents');
         $method->setAccessible(true);
-        $this->assertTrue(is_array($method->invokeArgs($this->adapter(), ['', false])));
+        $result = $method->invokeArgs($this->adapter(), ['', false]);
+        $this->assertTrue(is_array($result));
 
         $this->assertNull($this->adapter()->disconnect());
 

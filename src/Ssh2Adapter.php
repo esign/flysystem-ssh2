@@ -186,10 +186,11 @@ class Ssh2Adapter extends AbstractFtpAdapter
             }
 
             $path = empty($directory) ? $filename : ($directory . '/' . $filename);
-            $fileInfo = new SplFileInfo("$filenamePrefix$location/$filename");
-            $result[] = $this->normalizeListingObject($path, $fileInfo);
+            $statInfo = ssh2_sftp_stat($sftp, "$location/$filename");
+            $normalized = $this->normalizeListingObject($path, $statInfo);
+            $result[] = $normalized;
 
-            if ($recursive && $fileInfo->isDir()) {
+            if ($recursive && $normalized['type'] === 'dir') {
                 $result = array_merge($result, $this->listDirectoryContents($path));
             }
         }
@@ -198,18 +199,20 @@ class Ssh2Adapter extends AbstractFtpAdapter
         return $result;
     }
 
-    protected function normalizeListingObject($path, SplFileInfo $fileInfo)
+    protected function normalizeListingObject($path, array $statInfo)
     {
-        $permissions = $fileInfo->getPerms();
-        $type = $fileInfo->getType();
-        $timestamp = $fileInfo->getMTime();
+        $mode = decoct($statInfo['mode']);
+        $typeInt = octdec(substr($mode, 0, -4));
+        $type = $typeInt === 4 ? 'dir' : 'file';
+        $permissions = octdec(substr($mode, -3));
+        $timestamp = $statInfo['mtime'];
 
         if ($type === 'dir') {
             return compact('path', 'timestamp', 'type');
         }
 
         $visibility = $permissions & 0044 ? AdapterInterface::VISIBILITY_PUBLIC : AdapterInterface::VISIBILITY_PRIVATE;
-        $size = $fileInfo->getSize();
+        $size = $statInfo['size'];
 
         return compact('path', 'timestamp', 'type', 'visibility', 'size');
     }
