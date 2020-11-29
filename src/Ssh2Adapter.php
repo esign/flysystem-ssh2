@@ -156,7 +156,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
      */
     protected function prefix($path)
     {
-        return $this->root.ltrim($path, $this->separator);
+        return $this->root . ltrim($path, $this->separator);
     }
 
     /**
@@ -354,12 +354,23 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     public function deleteDir($dirname)
     {
-        // TODO: Implement deleteDir() method.
+        $this->getConnection();
+        $sftp = $this->sftp;
+        $location = $this->prefix($dirname);
+        return ssh2_sftp_rmdir($sftp, $location);
     }
 
     public function createDir($dirname, Config $config)
     {
-        // TODO: Implement createDir() method.
+        $this->getConnection();
+        $sftp = $this->sftp;
+        $location = $this->prefix($dirname);
+
+        if (!ssh2_sftp_mkdir($sftp, $location, $this->directoryPerm, true)) {
+            return false;
+        }
+
+        return ['path' => $dirname];
     }
 
     public function setVisibility($path, $visibility)
