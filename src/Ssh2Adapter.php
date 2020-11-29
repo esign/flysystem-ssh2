@@ -3,13 +3,15 @@
 namespace Esign\Flysystem\Ssh2;
 
 use League\Flysystem\Adapter\AbstractFtpAdapter;
+use League\Flysystem\Adapter\Polyfill\StreamedCopyTrait;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
 use Exception;
-use SplFileInfo;
 
 class Ssh2Adapter extends AbstractFtpAdapter
 {
+    use StreamedCopyTrait;
+
     /**
      * @var resource
      */
@@ -342,11 +344,6 @@ class Ssh2Adapter extends AbstractFtpAdapter
         // TODO: Implement rename() method.
     }
 
-    public function copy($path, $newpath)
-    {
-        // TODO: Implement copy() method.
-    }
-
     public function delete($path)
     {
         // TODO: Implement delete() method.
@@ -397,7 +394,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
         $stream = tmpfile();
         $streamFilename = stream_get_meta_data($stream)['uri'];
 
-        if (ssh2_scp_recv($connection, $location, $streamFilename) === false) {
+        if (!ssh2_scp_recv($connection, $location, $streamFilename)) {
             fclose($stream);
             return false;
         }
