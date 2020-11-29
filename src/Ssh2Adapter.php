@@ -369,12 +369,31 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     public function read($path)
     {
-        // TODO: Implement read() method.
+        $this->getConnection();
+        $sftp = $this->sftp;
+        $location = $this->prefix($path);
+        $contents = @file_get_contents("ssh2.sftp://$sftp$location");
+
+        return $contents === false
+            ? false
+            : compact('path', 'contents');
     }
 
     public function readStream($path)
     {
-        // TODO: Implement readStream() method.
+        $connection = $this->getConnection();
+        $location = $this->prefix($path);
+        $stream = tmpfile();
+        $streamFilename = stream_get_meta_data($stream)['uri'];
+
+        if (ssh2_scp_recv($connection, $location, $streamFilename) === false) {
+            fclose($stream);
+            return false;
+        }
+
+        rewind($stream);
+
+        return compact('stream', 'path');
     }
 
     public function getMetadata($path)

@@ -21,6 +21,8 @@ class ConnectionTest extends TestCase
         $result = $method->invokeArgs($this->adapter(), ['', false]);
         $this->assertTrue(is_array($result));
 
+        $result = $this->adapter()->readStream('.gitignore');
+
         $this->assertNull($this->adapter()->disconnect());
 
         $this->assertFalse($this->adapter()->isConnected());
