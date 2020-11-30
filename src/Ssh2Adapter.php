@@ -7,6 +7,8 @@ use League\Flysystem\Adapter\Polyfill\StreamedCopyTrait;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
 use Exception;
+use InvalidArgumentException;
+use League\Flysystem\Util;
 
 class Ssh2Adapter extends AbstractFtpAdapter
 {
@@ -171,8 +173,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
      */
     protected function listDirectoryContents($directory, $recursive = true)
     {
-        $connection = $this->getConnection();
-        $sftp = $this->sftp;
+        $sftp = $this->getSftp();
         $location = $this->prefix($directory);
         $filenamePrefix = "ssh2.sftp://$sftp/";
         $handle = @opendir("$filenamePrefix$location");
@@ -203,20 +204,36 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     protected function normalizeListingObject($path, array $statInfo)
     {
-        $mode = decoct($statInfo['mode']);
-        $typeInt = octdec(substr($mode, 0, -4));
-        $type = $typeInt === 4 ? 'dir' : 'file';
-        $permissions = octdec(substr($mode, -3));
+        $type = $this->detectType($statInfo['mode']);
+        $permissions = $this->normalizePermissions($statInfo['mode']);
         $timestamp = $statInfo['mtime'];
 
         if ($type === 'dir') {
             return compact('path', 'timestamp', 'type');
         }
 
-        $visibility = $permissions & 0044 ? AdapterInterface::VISIBILITY_PUBLIC : AdapterInterface::VISIBILITY_PRIVATE;
+        $visibility = $this->visibility($permissions);
         $size = $statInfo['size'];
 
         return compact('path', 'timestamp', 'type', 'visibility', 'size');
+    }
+
+    protected function detectType($permissions)
+    {
+        $permissions = decoct($permissions);
+        $typeInt = octdec(substr($permissions, 0, -4));
+        return $typeInt === 4 ? 'dir' : 'file';
+    }
+
+    protected function normalizePermissions($permissions)
+    {
+        $permissions = decoct($permissions);
+        return octdec(substr($permissions, -3));
+    }
+
+    protected function visibility($permissions)
+    {
+        return $permissions & 0044 ? AdapterInterface::VISIBILITY_PUBLIC : AdapterInterface::VISIBILITY_PRIVATE;
     }
 
     public function connect()
@@ -258,6 +275,15 @@ class Ssh2Adapter extends AbstractFtpAdapter
         return;
     }
 
+    /**
+     * @return resource
+     */
+    public function getSftp()
+    {
+        $this->getConnection();
+        return $this->sftp;
+    }
+
     protected function initializeSftpSubsystem()
     {
         $this->sftp = ssh2_sftp($this->connection);
@@ -280,7 +306,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
             return;
         }
 
-        if (ssh2_sftp_stat($this->sftp, $root) === false) {
+        if (ssh2_sftp_stat($this->getSftp(), $root) === false) {
             throw new InvalidRootException('Root is invalid or does not exist: ' . $root);
         }
 
@@ -341,29 +367,29 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     public function rename($path, $newpath)
     {
-        // TODO: Implement rename() method.
+        $source = $this->prefix($path);
+        $target = $this->prefix($newpath);
+
+        return ssh2_sftp_rename($this->getSftp(), $source, $target);
     }
 
     public function delete($path)
     {
-        // TODO: Implement delete() method.
+        $location = $this->prefix($path);
+        return ssh2_sftp_unlink($this->getSftp(), $location);
     }
 
     public function deleteDir($dirname)
     {
-        $this->getConnection();
-        $sftp = $this->sftp;
         $location = $this->prefix($dirname);
-        return ssh2_sftp_rmdir($sftp, $location);
+        return ssh2_sftp_rmdir($this->getSftp(), $location);
     }
 
     public function createDir($dirname, Config $config)
     {
-        $this->getConnection();
-        $sftp = $this->sftp;
         $location = $this->prefix($dirname);
 
-        if (!ssh2_sftp_mkdir($sftp, $location, $this->directoryPerm, true)) {
+        if (!ssh2_sftp_mkdir($this->getSftp(), $location, $this->directoryPerm, true)) {
             return false;
         }
 
@@ -372,13 +398,19 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     public function setVisibility($path, $visibility)
     {
-        // TODO: Implement setVisibility() method.
+        $location = $this->prefix($path);
+        $visibility = ucfirst($visibility);
+
+        if (!isset($this->{'perm' . $visibility})) {
+            throw new InvalidArgumentException('Unknown visibility: '.$visibility);
+        }
+
+        ssh2_sftp_chmod($this->getSftp(), $location, $this->{'perm' . $visibility});
     }
 
     public function read($path)
     {
-        $this->getConnection();
-        $sftp = $this->sftp;
+        $sftp = $this->getSftp();
         $location = $this->prefix($path);
         $contents = @file_get_contents("ssh2.sftp://$sftp$location");
 
@@ -406,16 +438,32 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     public function getMetadata($path)
     {
-        // TODO: Implement getMetadata() method.
+        $location = $this->prefix($path);
+        $statInfo = ssh2_sftp_stat($this->getSftp(), $location);
+
+        $size = $statInfo['size'];
+        $timestamp = $statInfo['mtime'];
+        $type = $this->detectType($statInfo['mode']);
+        $permissions = $this->normalizePermissions($statInfo['mode']);
+        $visibility = $this->visibility($permissions);
+
+        return compact('path', 'timestamp', 'type', 'visibility', 'size');
     }
 
     public function getMimetype($path)
     {
-        // TODO: Implement getMimetype() method.
+        $location = $this->prefix($path);
+        if (!$data = $this->read($location)) {
+            return false;
+        }
+
+        $data['mimetype'] = Util::guessMimeType($path, $data['contents']);
+
+        return $data;
     }
 
     public function getTimestamp($path)
     {
-        // TODO: Implement getTimestamp() method.
+        return $this->getMetadata($path);
     }
 }
