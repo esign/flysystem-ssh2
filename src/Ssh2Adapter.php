@@ -347,22 +347,38 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     public function write($path, $contents, Config $config)
     {
-        // TODO: Implement write() method.
+        $sftp = $this->getSftp();
+        $location = $this->prefix($path);
+        $result = @file_put_contents("ssh2.sftp://$sftp$location", $contents);
+
+        if ($result === false) {
+            return false;
+        }
+
+        return compact($path);
     }
 
     public function writeStream($path, $resource, Config $config)
     {
-        // TODO: Implement writeStream() method.
+        $sftp = $this->getSftp();
+        $location = $this->prefix($path);
+        $result = @file_put_contents("ssh2.sftp://$sftp$location", $resource);
+
+        if ($result === false) {
+            return false;
+        }
+
+        return compact($path);
     }
 
     public function update($path, $contents, Config $config)
     {
-        // TODO: Implement update() method.
+        return $this->write($path, $contents, $config);
     }
 
     public function updateStream($path, $resource, Config $config)
     {
-        // TODO: Implement updateStream() method.
+        return $this->writeStream($path, $resource, $config);
     }
 
     public function rename($path, $newpath)
@@ -402,7 +418,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
         $visibility = ucfirst($visibility);
 
         if (!isset($this->{'perm' . $visibility})) {
-            throw new InvalidArgumentException('Unknown visibility: '.$visibility);
+            throw new InvalidArgumentException('Unknown visibility: ' . $visibility);
         }
 
         ssh2_sftp_chmod($this->getSftp(), $location, $this->{'perm' . $visibility});
