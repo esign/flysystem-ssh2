@@ -182,6 +182,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
             return [];
         }
 
+        $result = [];
         $exclude = ['.', '..'];
         while (($filename = readdir($handle)) !== false) {
             if (in_array($filename, $exclude)) {
@@ -355,7 +356,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
             return false;
         }
 
-        return compact($path);
+        return compact('path');
     }
 
     public function writeStream($path, $resource, Config $config)
@@ -368,7 +369,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
             return false;
         }
 
-        return compact($path);
+        return compact('path');
     }
 
     public function update($path, $contents, Config $config)
