@@ -12,10 +12,6 @@
         <testsuite name="Feature Tests">
             <directory suffix="Test.php">./tests/Feature</directory>
         </testsuite>
-
-        <testsuite name="Unit Tests">
-            <directory suffix="Test.php">./tests/Unit</directory>
-        </testsuite>
     </testsuites>
     <php>
         <server name="SSH_HOST" value="example.com"/>
