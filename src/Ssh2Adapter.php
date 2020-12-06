@@ -173,9 +173,8 @@ class Ssh2Adapter extends AbstractFtpAdapter
      */
     protected function listDirectoryContents($directory, $recursive = true)
     {
-        $sftp = $this->getSftp();
         $location = $this->prefix($directory);
-        $filenamePrefix = "ssh2.sftp://$sftp/";
+        $filenamePrefix = "ssh2.sftp://" . intval($this->getSftp());
         $handle = @opendir("$filenamePrefix$location");
 
         if (!$handle) {
@@ -190,7 +189,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
             }
 
             $path = empty($directory) ? $filename : ($directory . '/' . $filename);
-            $statInfo = ssh2_sftp_stat($sftp, "$location/$filename");
+            $statInfo = ssh2_sftp_stat($this->getSftp(), "$location/$filename");
             $normalized = $this->normalizeListingObject($path, $statInfo);
             $result[] = $normalized;
 
@@ -285,6 +284,9 @@ class Ssh2Adapter extends AbstractFtpAdapter
         return $this->sftp;
     }
 
+    /**
+     * @return void
+     */
     protected function initializeSftpSubsystem()
     {
         $this->sftp = ssh2_sftp($this->connection);
@@ -314,6 +316,11 @@ class Ssh2Adapter extends AbstractFtpAdapter
         $this->setRoot($root);
     }
 
+    /**
+     * @param string $cmd
+     * @return string
+     * @throws \Exception
+     */
     protected function exec(string $cmd)
     {
         if (!($stream = ssh2_exec($this->connection, $cmd))) {
@@ -346,26 +353,46 @@ class Ssh2Adapter extends AbstractFtpAdapter
         return is_resource($this->connection);
     }
 
-    public function write($path, $contents, Config $config)
+    /**
+     * Upload a file.
+     *
+     * @param string          $path
+     * @param string|resource $contents
+     * @param Config          $config
+     * @return bool
+     */
+    public function upload($path, $contents, Config $config)
     {
         $sftp = $this->getSftp();
         $location = $this->prefix($path);
-        $result = @file_put_contents("ssh2.sftp://$sftp$location", $contents);
+        $this->ensureDirectory(Util::dirname($path));
+        $config = Util::ensureConfig($config);
+
+        $result = @file_put_contents('ssh2.sftp://' . intval($sftp) . $location, $contents);
 
         if ($result === false) {
             return false;
         }
 
-        return compact('path');
+        if ($config && $visibility = $config->get('visibility')) {
+            $this->setVisibility($path, $visibility);
+        }
+
+        return true;
+    }
+
+    public function write($path, $contents, Config $config)
+    {
+        if ($this->upload($path, $contents, $config) === false) {
+            return false;
+        }
+
+        return compact('contents', 'path');
     }
 
     public function writeStream($path, $resource, Config $config)
     {
-        $sftp = $this->getSftp();
-        $location = $this->prefix($path);
-        $result = @file_put_contents("ssh2.sftp://$sftp$location", $resource);
-
-        if ($result === false) {
+        if ($this->upload($path, $resource, $config) === false) {
             return false;
         }
 
@@ -422,14 +449,14 @@ class Ssh2Adapter extends AbstractFtpAdapter
             throw new InvalidArgumentException('Unknown visibility: ' . $visibility);
         }
 
-        ssh2_sftp_chmod($this->getSftp(), $location, $this->{'perm' . $visibility});
+        return ssh2_sftp_chmod($this->getSftp(), $location, $this->{'perm' . $visibility});
     }
 
     public function read($path)
     {
         $sftp = $this->getSftp();
         $location = $this->prefix($path);
-        $contents = @file_get_contents("ssh2.sftp://$sftp$location");
+        $contents = @file_get_contents('ssh2.sftp://' . intval($sftp) . $location);
 
         return $contents === false
             ? false
@@ -469,8 +496,7 @@ class Ssh2Adapter extends AbstractFtpAdapter
 
     public function getMimetype($path)
     {
-        $location = $this->prefix($path);
-        if (!$data = $this->read($location)) {
+        if (! ($data = $this->read($path))) {
             return false;
         }
 
