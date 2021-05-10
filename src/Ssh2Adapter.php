@@ -483,7 +483,12 @@ class Ssh2Adapter extends AbstractFtpAdapter
     public function getMetadata($path)
     {
         $location = $this->prefix($path);
-        $statInfo = ssh2_sftp_stat($this->getSftp(), $location);
+
+        try {
+            $statInfo = ssh2_sftp_stat($this->getSftp(), $location);
+        } catch (Exception $e) {
+            return false;
+        }
 
         $size = $statInfo['size'];
         $timestamp = $statInfo['mtime'];
