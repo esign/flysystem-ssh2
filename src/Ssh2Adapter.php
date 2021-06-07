@@ -174,8 +174,9 @@ class Ssh2Adapter extends AbstractFtpAdapter
     protected function listDirectoryContents($directory, $recursive = true)
     {
         $location = $this->prefix($directory);
+        $realPath = ssh2_sftp_realpath($this->getSftp(), $location);
         $filenamePrefix = "ssh2.sftp://" . intval($this->getSftp());
-        $handle = @opendir("$filenamePrefix$location");
+        $handle = @opendir("$filenamePrefix$realPath");
 
         if (!$handle) {
             return [];
@@ -365,10 +366,11 @@ class Ssh2Adapter extends AbstractFtpAdapter
     {
         $sftp = $this->getSftp();
         $location = $this->prefix($path);
+        $realPath = ssh2_sftp_realpath($sftp, $location);
         $this->ensureDirectory(Util::dirname($path));
         $config = Util::ensureConfig($config);
 
-        $result = @file_put_contents('ssh2.sftp://' . intval($sftp) . $location, $contents);
+        $result = @file_put_contents('ssh2.sftp://' . intval($sftp) . $realPath, $contents);
 
         if ($result === false) {
             return false;
@@ -456,7 +458,8 @@ class Ssh2Adapter extends AbstractFtpAdapter
     {
         $sftp = $this->getSftp();
         $location = $this->prefix($path);
-        $contents = @file_get_contents('ssh2.sftp://' . intval($sftp) . $location);
+        $realPath = ssh2_sftp_realpath($sftp, $location);
+        $contents = @file_get_contents('ssh2.sftp://' . intval($sftp) . $realPath);
 
         return $contents === false
             ? false
