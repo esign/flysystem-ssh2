@@ -366,8 +366,8 @@ class Ssh2Adapter extends AbstractFtpAdapter
     {
         $sftp = $this->getSftp();
         $location = $this->prefix($path);
-        $realPath = ssh2_sftp_realpath($sftp, $location);
         $this->ensureDirectory(Util::dirname($path));
+        $realPath = ssh2_sftp_realpath($sftp, $location);
         $config = Util::ensureConfig($config);
 
         $result = @file_put_contents('ssh2.sftp://' . intval($sftp) . $realPath, $contents);
